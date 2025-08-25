@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Đại Hội Võ Thuật</title>
+  <style>
+    /* ---------- BASIC STYLES ---------- */
+    :root{
+      --bg: #0f1724; --card:#0f1728; --text:#e6eef8; --muted:#9aa7bd;
+      --accent: #ff6b6b;
+    }
+    [data-theme="light"]{
+      --bg:#f4f7fb; --card:#fff; --text:#0b1220; --muted:#657280; --accent:#ff4d4d;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;color:var(--text);background:var(--bg);}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(0deg,transparent,rgba(0,0,0,0.15));position:sticky;top:0;backdrop-filter: blur(4px);z-index:30}
+    header h1{margin:0;font-size:18px;display:flex;gap:8px;align-items:center}
+    header .controls{display:flex;gap:8px;align-items:center}
+    button,select{font-family:inherit}
+    /* Background video */
+    #bgWrap{position:fixed;inset:0;z-index:-1;overflow:hidden}
+    #bgVideo{width:100%;height:100%;object-fit:cover;opacity:0.35;filter:brightness(0.85) saturate(1.05)}
+    /* App layout */
+    main{max-width:1200px;margin:18px auto;padding:0 14px}
+    #composer{display:flex;gap:8px;align-items:flex-start;background:var(--card);padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.25);margin-bottom:12px}
+    #composer textarea{flex:1;height:92px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text)}
+    #composer input[type=file]{display:block}
+    #postGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+    .postCard{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.25);display:flex;flex-direction:column;gap:8px}
+    .postCard img, .postCard video{width:100%;height:220px;object-fit:cover;border-radius:8px}
+    .postHeader{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+    .postFooter{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.03);font-size:13px}
+    .floatingComments{position:fixed;right:16px;top:100px;width:320px;pointer-events:none;z-index:40}
+    .floatingItem{margin-bottom:8px;background:rgba(0,0,0,0.35);padding:8px;border-radius:12px;color:#fff;backdrop-filter: blur(4px);animation:slideIn 0.5s}
+    @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+    /* small helpers */
+    .hidden{display:none}
+    .top-banner{position:fixed;left:50%;transform:translateX(-50%);top:72px;background:linear-gradient(90deg,#ffb86b,#ff6b6b);padding:8px 14px;border-radius:999px;color:#111;font-weight:600;z-index:50}
+    .controls button{padding:8px 10px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:var(--text)}
+    /* responsive */
+    @media (max-width:640px){
+      #bgVideo{object-position:center 30%}
+      .floatingComments{right:8px;top:140px;width:260px}
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <!-- BACKGROUND -->
+  <div id="bgWrap">
+    <video autoplay muted loop playsinline id="bgVideo">
+      <source src="background.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <header>
+    <h1>Đại Hội Võ Thuật <span style="font-size:12px;opacity:.8">— cộng đồng</span></h1>
+    <div class="controls">
+      <select id="themeToggle">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select>
+      <button id="loginBtn">Đăng nhập</button>
+      <button id="profileBtn" class="hidden">Profile</button>
+      <button id="notifBtn">🔔</button>
+    </div>
+  </header>
+
+  <!-- MUSIC -->
+  <div style="max-width:1200px;margin:12px auto;padding:0 14px;display:flex;gap:8px;align-items:center">
+    <select id="musicSelect">
+      <option value="">Play Music</option>
+      <option value="./deanhluongthien.mp3">Để Anh Lương Thiện Remix</option>
+      <option value="./emcuoiroia.mp3">Em Cưới Rồi À Remix</option>
+      <option value="./freemanxlowremix.mp3">Free Man x Low Remix</option>
+      <option value="./slayphonk.mp3">Slay Phonk</option>
+      <option value="./Nk.mp3">Yêu em rất nhiều</option>
+    </select>
+    <audio id="bgMusic" autoplay loop hidden></audio>
+    <button id="musicToggle">⏯</button>
+    <button id="bgToggle">Tắt nền</button>
+  </div>
+
+  <main>
+    <!-- Composer -->
+    <section id="composer">
+      <textarea id="postText" placeholder="Viết gì đó... (một bài/ngày)"></textarea>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input type="file" id="postFile" accept="image/*,video/*" />
+        <button id="postSubmit">Đăng</button>
+        <label class="pill"><input type="checkbox" id="confirmBeforePost"> Hỏi trước khi đăng</label>
+      </div>
+    </section>
+
+    <!-- Posts Grid -->
+    <section id="postGrid"></section>
+  </main>
+
+  <!-- floating comments -->
+  <div class="floatingComments" id="floatingComments"></div>
+
+  <!-- small top-banner for random user -->
+  <div id="randomBanner" class="top-banner hidden"></div>
+
+  <!-- LOGIN / PROFILE MODAL (simple) -->
+  <div id="modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:80">
+    <div style="background:var(--card);padding:16px;border-radius:12px;min-width:320px;">
+      <h3 id="modalTitle">Đăng nhập</h3>
+      <input id="emailInput" placeholder="Email" style="width:100%;padding:8px;margin-bottom:8px" />
+      <input id="passInput" placeholder="Password" type="password" style="width:100%;padding:8px;margin-bottom:8px" />
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="modalClose">Đóng</button>
+        <button id="signupBtn">Đăng ký</button>
+        <button id="signinBtn">Đăng nhập</button>
+        <button id="forgotBtn">Quên mật khẩu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE SDKs + App Logic -->
+  <script type="module">
+    /*
+      SINGLE FILE APP - Demo
+      - Firebase config taken from your image.
+      - Many features are implemented in a simple/usable way.
+      - For production, add Firestore/Storage rules, Cloud Functions for atomic ops and scaling.
+    */
+
+    // ---------- FIREBASE CONFIG (from your image) ----------
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBsLXs9rZROGQJjIYxGommG00Jf4Xxs2w0",
+      authDomain: "hust-3d8f5.firebaseapp.com",
+      projectId: "hust-3d8f5",
+      storageBucket: "hust-3d8f5.firebasestorage.app",
+      messagingSenderId: "208271977864",
+      appId: "1:208271977864:web:62ddf6649d8fe16019de3d",
+      measurementId: "G-XZGDGMSG97"
+    };
+
+    // Admin emails (from image)
+    const ADMIN_EMAILS = ["iloveanhtu09@gmail.com"];
+
+    // ---------- IMPORTS (Modular SDK) ----------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, serverTimestamp, onSnapshot, updateDoc, increment, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getStorage, ref as sref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+    import { getDatabase, ref as rref, push as rpush, onChildAdded } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+
+    // ---------- INIT ----------
+    const app = initializeApp(FIREBASE_CONFIG);
+    const AUTH = getAuth(app);
+    await setPersistence(AUTH, browserLocalPersistence);
+    const DB = getFirestore(app);
+    const STORAGE = getStorage(app);
+    const RTDB = getDatabase(app);
+
+    // ---------- UI Elements ----------
+    const postGrid = document.getElementById("postGrid");
+    const postSubmit = document.getElementById("postSubmit");
+    const postText = document.getElementById("postText");
+    const postFile = document.getElementById("postFile");
+    const bgMusic = document.getElementById("bgMusic");
+    const musicSelect = document.getElementById("musicSelect");
+    const musicToggle = document.getElementById("musicToggle");
+    const bgToggle = document.getElementById("bgToggle");
+    const loginBtn = document.getElementById("loginBtn");
+    const profileBtn = document.getElementById("profileBtn");
+    const modal = document.getElementById("modal");
+    const modalClose = document.getElementById("modalClose");
+    const modalTitle = document.getElementById("modalTitle");
+    const emailInput = document.getElementById("emailInput");
+    const passInput = document.getElementById("passInput");
+    const signinBtn = document.getElementById("signinBtn");
+    const signupBtn = document.getElementById("signupBtn");
+    const forgotBtn = document.getElementById("forgotBtn");
+    const floatingComments = document.getElementById("floatingComments");
+    const themeToggle = document.getElementById("themeToggle");
+    const randomBanner = document.getElementById("randomBanner");
+    const confirmBeforePost = document.getElementById("confirmBeforePost");
+
+    let currentUser = null;
+
+    // ---------- AUTH HANDLERS ----------
+    loginBtn.addEventListener("click", ()=> openModal("login"));
+    modalClose.addEventListener("click", ()=> modal.classList.add("hidden"));
+    signinBtn.addEventListener("click", async ()=> {
+      try{
+        const email = emailInput.value; const pass = passInput.value;
+        if(!email || !pass) return alert("Nhập email và mật khẩu");
+        await signInWithEmailAndPassword(AUTH, email, pass);
+        modal.classList.add("hidden");
+      }catch(e){ alert("Lỗi đăng nhập: "+e.message) }
+    });
+    signupBtn.addEventListener("click", async ()=> {
+      try{
+        const email = emailInput.value; const pass = passInput.value;
+        if(!email || !pass) return alert("Nhập email và mật khẩu");
+        const cred = await createUserWithEmailAndPassword(AUTH, email, pass);
+        // create user doc
+        await setDoc(doc(DB,"users",cred.user.uid), { email, displayName: email.split("@")[0], createdAt: serverTimestamp(), followersCount:0, followingCount:0 });
+        modal.classList.add("hidden");
+      }catch(e){ alert("Lỗi đăng ký: "+e.message) }
+    });
+    forgotBtn.addEventListener("click", async ()=> {
+      const email = emailInput.value;
+      if(!email) return alert("Nhập email để lấy lại mật khẩu");
+      try{ await sendPasswordResetEmail(AUTH, email); alert("Đã gửi email reset"); } catch(e){ alert("Lỗi: "+e.message) }
+    });
+
+    function openModal(mode="login"){
+      modal.classList.remove("hidden");
+      if(mode==="login"){ modalTitle.textContent="Đăng nhập / Tài khoản"; signinBtn.classList.remove("hidden"); signupBtn.classList.remove("hidden"); }
+    }
+
+    onAuthStateChanged(AUTH, async user => {
+      currentUser = user;
+      if(user){
+        loginBtn.classList.add("hidden");
+        profileBtn.classList.remove("hidden");
+        profileBtn.textContent = user.email.split("@")[0];
+        // ensure user doc exists
+        const ud = doc(DB,"users",user.uid);
+        const snap = await getDoc(ud);
+        if(!snap.exists()) await setDoc(ud, { email:user.email, displayName:user.email.split("@")[0], createdAt: serverTimestamp(), followersCount:0, followingCount:0 });
+      } else {
+        loginBtn.classList.remove("hidden");
+        profileBtn.classList.add("hidden");
+      }
+    });
+
+    // logout by clicking profile button (simple)
+    profileBtn.addEventListener("click", async ()=> {
+      if(!currentUser) return;
+      const isAdmin = ADMIN_EMAILS.includes(currentUser.email);
+      const action = confirm("Bạn: "+currentUser.email+"\nOK = Logout. Cancel = Open admin panel (if admin).");
+      if(action){ await signOut(AUTH); alert("Đã đăng xuất"); return; }
+      if(isAdmin) openAdminPanel();
+    });
+
+    function openAdminPanel(){
+      const c = confirm("Admin panel: Xóa tất cả bài? OK để xóa tất cả (demo).");
+      if(!c) return;
+      // demo: soft-delete all posts
+      getDocs(collection(DB,"posts")).then(snap => {
+        snap.forEach(async d => { await updateDoc(doc(DB,"posts",d.id), { deleted:true }); });
+        alert("Marked all posts as deleted (demo).");
+      });
+    }
+
+    // ---------- THEME ----------
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    document.body.setAttribute("data-theme", savedTheme);
+    themeToggle.value = savedTheme;
+    themeToggle.addEventListener("change", (e)=> {
+      document.body.setAttribute("data-theme", e.target.value);
+      localStorage.setItem("theme", e.target.value);
+    });
+
+    // ---------- MUSIC / BACKGROUND CONTROLS ----------
+    musicSelect.addEventListener("change", (e)=>{
+      const url = e.target.value;
+      if(!url){ bgMusic.pause(); bgMusic.src = ""; return; }
+      bgMusic.src = url;
+      bgMusic.play().catch(()=>{});
+    });
+    musicToggle.addEventListener("click", ()=> {
+      if(bgMusic.paused) bgMusic.play(); else bgMusic.pause();
+    });
+    bgToggle.addEventListener("click", ()=> {
+      const v = document.getElementById("bgVideo");
+      if(v.paused){ v.play(); bgToggle.textContent="Tắt nền"; } else { v.pause(); bgToggle.textContent="Bật nền"; }
+    });
+
+    // ---------- HELPERS ----------
+    function escapeHtml(s){ if(!s) return ""; return s.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+
+    // ---------- CREATE POST (1 post/ngày rule client-side, server rules recommended) ----------
+    postSubmit.addEventListener("click", async ()=>{
+      if(!currentUser) return alert("Đăng nhập để đăng bài");
+      try{
+        if(confirmBeforePost.checked){
+          if(!confirm("Bạn có chắc muốn đăng không?")) return;
+        }
+        // check last post time
+        const userRef = doc(DB,"users",currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const data = userSnap.data() || {};
+        const lastPost = data.lastPostAt?.toDate?.();
+        const isAdmin = ADMIN_EMAILS.includes(currentUser.email);
+        if(!isAdmin && lastPost){
+          const since = Date.now() - lastPost.getTime();
+          if(since < 24*3600*1000) return alert("Bạn chỉ được đăng 1 lần/24 giờ (admin được phép).");
+        }
+        // upload file if any
+        let fileUrl = "";
+        if(postFile.files.length){
+          const file = postFile.files[0];
+          const sRef = sref(STORAGE, `posts/${currentUser.uid}/${Date.now()}_${file.name}`);
+          await uploadBytes(sRef, file);
+          fileUrl = await getDownloadURL(sRef);
+        }
+        const docRef = await addDoc(collection(DB,"posts"), {
+          authorId: currentUser.uid,
+          authorEmail: currentUser.email,
+          text: postText.value || "",
+          fileUrl,
+          createdAt: serverTimestamp(),
+          views: 0, likes: 0, commentsCount: 0,
+          deleted: false
+        });
+        // update user lastPostAt
+        await setDoc(userRef, { lastPostAt: serverTimestamp() }, { merge: true });
+        postText.value = ""; postFile.value = "";
+        alert("Đã đăng!");
+      }catch(e){ console.error(e); alert("Lỗi khi đăng: "+e.message) }
+    });
+
+    // ---------- REALTIME POSTS LISTENER ----------
+    const postsQuery = query(collection(DB,"posts"), orderBy("createdAt","desc"), limit(80));
+    onSnapshot(postsQuery, snap => {
+      postGrid.innerHTML = "";
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if(d.deleted) return; // hide soft deleted
+        const card = createPostCard(docSnap.id, d);
+        postGrid.appendChild(card);
+      });
+    });
+
+    // ---------- Create a Post Card ----------
+    function createPostCard(id, data){
+      const el = document.createElement("div"); el.className = "postCard";
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "";
+      el.innerHTML = `
+        <div class="postHeader"><div style="display:flex;gap:8px;align-items:center"><strong>${escapeHtml(data.authorEmail.split("@")[0])}</strong>
+        <span class="pill">${createdAt}</span></div><div style="font-size:13px">${data.views||0} 👁️</div></div>
+        <div class="postBody"><p>${escapeHtml(data.text||"")}</p>
+          ${data.fileUrl ? (data.fileUrl.match(/\.mp4|\.webm|\.ogg/i) ? `<video controls src="${data.fileUrl}"></video>` : `<img src="${data.fileUrl}" loading="lazy"/>`) : ""}
+        </div>
+        <div class="postFooter">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="likeBtn">❤️ <span class="likeCount">${data.likes||0}</span></button>
+            <button class="commentBtn">💬 <span class="cCount">${data.commentsCount||0}</span></button>
+            <button class="followBtn">➕ Follow</button>
+          </div>
+          <div>
+            <button class="viewBtn">Open</button>
+            <button class="deleteBtn">🗑</button>
+          </div>
+        </div>
+      `;
+      // like
+      el.querySelector(".likeBtn").addEventListener("click", async ()=>{
+        try{
+          await updateDoc(doc(DB,"posts",id), { likes: increment(1) });
+        }catch(e){ console.error(e) }
+      });
+      // comment open floating composer (simple: push to RTDB)
+      el.querySelector(".commentBtn").addEventListener("click", ()=>{
+        const text = prompt("Bình luận (sẽ hiển thị 'trôi'):");
+        if(!text) return;
+        if(!currentUser) return alert("Đăng nhập để bình luận");
+        const comRef = rref(RTDB, `comments/${id}`);
+        rpush(comRef, { user: currentUser.email.split("@")[0], text, at: Date.now() });
+        updateDoc(doc(DB,"posts",id), { commentsCount: increment(1) });
+      });
+      // follow
+      el.querySelector(".followBtn").addEventListener("click", async ()=>{
+        if(!currentUser) return alert("Đăng nhập để follow");
+        const targetId = data.authorId;
+        if(targetId === currentUser.uid) return alert("Không thể follow chính bạn");
+        // add follower (simple structure)
+        try{
+          await setDoc(doc(DB,"followers",`${targetId}_${currentUser.uid}`), { targetId, from: currentUser.uid, createdAt: serverTimestamp() });
+          // increment counters on target's user doc
+          await updateDoc(doc(DB,"users",targetId), { followersCount: increment(1) });
+          await updateDoc(doc(DB,"users",currentUser.uid), { followingCount: increment(1) });
+          alert("Đã follow " + data.authorEmail.split("@")[0]);
+        }catch(e){ console.error(e); alert("Lỗi follow") }
+      });
+      // view/open
+      el.querySelector(".viewBtn").addEventListener("click", async ()=>{
+        // increment view (simple update)
+        await updateDoc(doc(DB,"posts",id), { views: increment(1) });
+        // show details and mini chat
+        openPostDetail(id, data);
+      });
+      // delete (owner or admin)
+      el.querySelector(".deleteBtn").addEventListener("click", async ()=>{
+        if(!currentUser) return alert("Đăng nhập để xóa");
+        const isAdmin = ADMIN_EMAILS.includes(currentUser.email);
+        if(currentUser.uid === data.authorId || isAdmin){
+          if(!confirm("Xóa bài này?")) return;
+          await updateDoc(doc(DB,"posts",id), { deleted:true });
+          // optionally delete storage file - requires deleteObject and proper security
+          alert("Đã xóa (soft delete)");
+        } else alert("Bạn không có quyền xóa");
+      });
+
+      // badges
+      const badges = [];
+      if((data.views||0) >= 10) badges.push("🔥");
+      // if author followers >= 5 (we don't have count here reliably) skip or fetch user
+      // add badges to header
+      const header = el.querySelector(".postHeader");
+      if(badges.length) header.innerHTML += `<div style="margin-left:8px">${badges.join(" ")}</div>`;
+      return el;
+    }
+
+    // ---------- openPostDetail (mini chat + comments history) ----------
+    async function openPostDetail(postId, postData){
+      const detail = await getDoc(doc(DB,"posts",postId));
+      const ok = confirm("Mở post detail (OK) hoặc hủy. Trong detail bạn có chat realtime và xem comments trôi.");
+      if(!ok) return;
+      // open mini chat by creating a chat node under RTDB
+      const roomRef = rref(RTDB, `postChat/${postId}`);
+      const msg = prompt("Gửi tin nhắn công khai cho bài này (mini chat):");
+      if(!msg) return;
+      if(!currentUser) return alert("Đăng nhập để chat");
+      rpush(roomRef, { user: currentUser.email.split("@")[0], text: msg, at: Date.now() });
+    }
+
+    // ---------- FLOATING COMMENTS (RTDB) ----------
+    // Listen for any new comment under all posts (for demo, we attach onChildAdded to /comments path)
+    const commentsRoot = rref(RTDB, "comments");
+    // For performance in real app: subscribe per-post only when viewing that post
+    onChildAdded(commentsRoot, (snap) => {
+      // this triggers for every immediate child (postId) — we'll also attach child added to each post node individually
+    });
+    // attach child added for each specific post node dynamically via poll (simple approach)
+    // We'll fetch posts once and attach listeners per post for demo
+    async function attachCommentListeners(){
+      const s = await getDocs(collection(DB,"posts"));
+      s.forEach(d => {
+        const node = rref(RTDB, `comments/${d.id}`);
+        onChildAdded(node, (csnap)=>{
+          const v = csnap.val();
+          showFloatingComment(v.user, v.text);
+        });
+      });
+    }
+    // initial attach
+    attachCommentListeners();
+
+    function showFloatingComment(user, text){
+      const div = document.createElement("div"); div.className="floatingItem";
+      div.textContent = `${user}: ${text}`;
+      floatingComments.prepend(div);
+      setTimeout(()=>{ div.remove(); }, 8000);
+    }
+
+    // ---------- RANDOM HIGHLIGHT USER (every 5 minutes show for 12s) ----------
+    async function showRandomUserOnce(){
+      try{
+        const usersSnap = await getDocs(collection(DB,"users"));
+        const arr = usersSnap.docs.map(d=> ({ id:d.id, ...d.data() }));
+        if(!arr.length) return;
+        const pick = arr[Math.floor(Math.random()*arr.length)];
+        randomBanner.textContent = `Người được chọn: ${pick.displayName || pick.email || pick.id}`;
+        randomBanner.classList.remove("hidden");
+        setTimeout(()=> randomBanner.classList.add("hidden"), 12000);
+      }catch(e){ console.error(e) }
+    }
+    // schedule: show every 5 minutes (for demo, start once and then interval)
+    showRandomUserOnce();
+    setInterval(showRandomUserOnce, 5*60*1000);
+
+    // ---------- SEARCH USER (simple) ----------
+    // You can implement a UI to call this function; quick demo:
+    window.searchUserByName = async (name) => {
+      if(!name) return alert("Nhập tên");
+      const q = query(collection(DB,"users"), where("displayName","==",name));
+      const s = await getDocs(q);
+      if(s.empty) return alert("Không tìm thấy");
+      const list = s.docs.map(d=> d.data());
+      alert("Found: " + JSON.stringify(list.map(x=>x.displayName || x.email).slice(0,5)));
+    };
+
+    // ---------- REaltime CHAT (global mini chat) ----------
+    const globalChatRef = rref(RTDB, "globalChat");
+    // listen
+    onChildAdded(globalChatRef, snap => {
+      const v = snap.val();
+      // show as floating
+      showFloatingComment(v.user, v.text);
+    });
+    // helper to send global message
+    window.sendGlobalMessage = async (text)=>{
+      if(!currentUser) return alert("Đăng nhập để chat");
+      rpush(globalChatRef, { user: currentUser.email.split("@")[0], text, at: Date.now() });
+    };
+
+    // ---------- INIT / SANITY ----------
+    console.log("App initialized");
+
+    // ---------- SECURITY NOTES (Important) ----------
+    /*
+      - This demo relies on client-side checks for "1 post/day" and admin email.
+      - For production, enforce rules in Firestore Security Rules (example below) and prefer Cloud Functions
+        for atomic operations (upload -> create post -> update user counters).
+      - Also consider using custom claims to mark admin users instead of checking email in client.
+    */
+
+    // ---------- FIRESTORE RULES (example) ----------
+    /*
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /users/{uid} {
+          allow read: if request.auth != null;
+          allow write: if request.auth != null && request.auth.uid == uid;
+        }
+        match /posts/{postId} {
+          allow read: if true;
+          allow create: if request.auth != null && isAllowedToPost(request.auth.uid);
+          allow update, delete: if request.auth != null && (request.auth.uid == resource.data.authorId || request.auth.token.email in ["iloveanhtu09@gmail.com"]);
+        }
+        function isAllowedToPost(uid) {
+          // see previous assistant for pattern using get() on users doc lastPostAt and request.time
+          return true; // implement properly
+        }
+      }
+    }
+    */
+
+  </script>
+</body>
+</html>
